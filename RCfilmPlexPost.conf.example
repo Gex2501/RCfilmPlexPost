@@ -3,7 +3,7 @@
 [Helper Apps]
 
 # Path to the comskip binary.
-comskip-path: /usr/local/bin/comskip
+comskip-path: /usr/bin/comskip
 
 # Path to the comskip INI file. Defaults to the same directory as the RCfilmPlexPost script.
 # comskip-ini-path: ~/comskip.ini
@@ -28,7 +28,7 @@ max-vertical-resolution: 1080
 [Logging]
 
 # Log file location.
-logfile-path: ~/Library/Logs/RCfilmPlexPost.log
+logfile-path: $HOME/Logs/RCfilmPlexPost.log
 
 # Split the log output to the console? Useful for debugging.
 console-logging: True
