@@ -14,15 +14,15 @@ ffmpeg-path: /usr/bin/ffmpeg
 #Path to mediainfo binary, used to read resolution from files
 mediainfo-path: /usr/bin/mediainfo
 
-# Nice level. Used for file copies, comskip analysis, and ffmpeg processing. 0 (default, full priority) - 20 (most nice)
+# Nice level. Used for CPU priority in file copies, comskip analysis, and ffmpeg processing. (-20=full priority), (0=default) (20=Least priority) 
 nice-level: 0
 
 [Transcoding]
 
-#Specify if you would like the script to transcode the file to h264 after removing the commercials
+#Specify if you would like the script to transcode the file to HEVC after removing the commercials
 transcode-after-comskip: True
 
-#Specify a max vertical resolution. Any files larger than this will be proportionally resized during transcoding to h264. Resolution is determined with MediaInfo
+#Specify a max vertical resolution. Any files larger than this will be proportionally resized during transcoding to HEVC. Resolution is determined with MediaInfo
 max-vertical-resolution: 1080
 
 [Logging]
