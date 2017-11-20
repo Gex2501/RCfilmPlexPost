@@ -214,7 +214,7 @@ if TRANSCODE:
       shrink_yes = True
     else:
       shrink_yes = False
-    ffmpeg_args = [FFMPEG_PATH, '-i', os.path.join(temp_dir, video_basename), '-c:v', 'libx265', '-preset', 'veryfast', '-crf', '23', '-b:v', '1300k', '-tag:v', 'hvc1', '-vsync', '2', '-r', '30', '-c:a', 'aac', '-map_metadata', '0', '-b:a', '128k', '-c:s', 'copy', '-threads', '4', '-vf', 'yadif', os.path.join(temp_dir, 'temp.mp4') ]
+      ffmpeg_args = [FFMPEG_PATH, '-i', os.path.join(temp_dir, video_basename), '-c:v', 'libx265', '-preset', 'medium', '-crf', '28', '-b:v', '1300k', '-tag:v', 'hvc1', '-vsync', '2', '-r', '30', '-c:a', 'aac', '-map_metadata', '0', '-b:a', '128k', '-c:s', 'copy', '-threads', '2', '-vf', 'yadif', os.path.join(temp_dir, 'temp.mp4') ]
     if shrink_yes:
       ffmpeg_scale_command = 'scale=-1:' + str(MAX_VERT_RES)
       ffmpeg_args.insert(len(ffmpeg_args)-1, '-vf')
