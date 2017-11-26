@@ -16,6 +16,10 @@ if not os.path.exists(config_file_path):
   print 'Config file not found: %s' % config_file_path
   print 'Make a copy of RCfilmPlexPost.conf.example named RCfilmPlexPost.conf, modify as necessary, and place in the same directory as this script.'
   sys.exit(1)
+  
+if len(sys.argv) < 2:
+  print 'Usage: RCfilmPlexPost.py input-file'
+  sys.exit(1)
 
 config = ConfigParser.SafeConfigParser({'comskip-ini-path' : os.path.join(os.path.dirname(os.path.realpath(__file__)), 'comskip.ini'), 'temp-root' : tempfile.gettempdir(), 'nice-level' : '0', 'transcode-after-comskip' : False, 'stash-original' : False})
 config.read(config_file_path)
@@ -39,9 +43,12 @@ STASH_ORIGINAL = config.getboolean('File Manipulation', 'stash-original')
 # Logging.
 session_uuid = str(uuid.uuid4())
 fmt = '%%(asctime)-15s [%s] %%(message)s' % session_uuid[:6]
+
 if not os.path.exists(os.path.dirname(LOG_FILE_PATH)):
   os.makedirs(os.path.dirname(LOG_FILE_PATH))
+
 logging.basicConfig(level=logging.INFO, format=fmt, filename=LOG_FILE_PATH)
+
 if CONSOLE_LOGGING:
   console = logging.StreamHandler()
   console.setLevel(logging.INFO)
@@ -55,15 +62,14 @@ def sizeof_fmt(num, suffix='B'):
   for unit in ['','K','M','G','T','P','E','Z']:
     if abs(num) < 1024.0:
       return "%3.1f%s%s" % (num, unit, suffix)
-    num /= 1024.0
-  return "%.1f%s%s" % (num, 'Y', suffix)
 
-if len(sys.argv) < 2:
-  print 'Usage: RCfilmPlexPost.py input-file'
-  sys.exit(1)
+    num /= 1024.0
+
+  return "%.1f%s%s" % (num, 'Y', suffix)
 
 # Clean up after ourselves and exit.
 def cleanup_and_exit(temp_dir, keep_temp=False):
+
   if keep_temp:
     logging.info('Leaving temp files in: %s' % temp_dir)
   else:
@@ -82,7 +88,8 @@ def cleanup_and_exit(temp_dir, keep_temp=False):
 # If we're in a git repo, let's see if we can report our sha.
 logging.info('RCfilmPlexPost got invoked from %s' % os.path.realpath(__file__))
 try:
-  git_sha = subprocess.check_output('git rev-parse --short HEAD', shell=True)
+  git_sha = subprocess.check_output('git -C "' + os.path.realpath(os.path.dirname(__file__)) + '" rev-parse --short HEAD', shell=True)
+
   if git_sha:
     logging.info('Using version: %s' % git_sha.strip())
 except: pass
@@ -100,7 +107,8 @@ if sys.platform != 'win32':
 
 # On to the actual work.
 try:
-  video_path = sys.argv[1]
+  # video_path = sys.argv[1]
+  video_path = os.path.realpath(sys.argv[1])
   temp_dir = os.path.join(TEMP_ROOT, session_uuid)
   os.makedirs(temp_dir)
   os.chdir(temp_dir)
@@ -108,7 +116,6 @@ try:
   logging.info('Using session ID: %s' % session_uuid)
   logging.info('Using temp dir: %s' % temp_dir)
   logging.info('Using input file: %s' % video_path)
-
 
   original_video_dir = os.path.dirname(video_path)
   video_basename = os.path.basename(video_path)
@@ -138,6 +145,7 @@ except Exception, e:
 #process the comskip output and generate segments
 edl_file = os.path.join(temp_dir, video_name + '.edl')
 logging.info('Using EDL: ' + edl_file)
+
 try:
   segments = []
   prev_segment_end = 0.0
@@ -210,15 +218,13 @@ if TRANSCODE:
   try:
     video_height = int(subprocess.check_output([MEDIAINFO_PATH, '--Inform=Video;%Height%', os.path.join(temp_dir, video_basename)]))
     logging.info('Video Vertical Resolution found to be: %s' % video_height)
+
+    ffmpeg_args = [FFMPEG_PATH, '-i', os.path.join(temp_dir, video_basename), '-c:v', 'libx265', '-preset', 'medium', '-crf', '28', '-b:v', '1300k', '-tag:v', 'hvc1', '-vsync', '2', '-r', '30', '-c:a', 'aac', '-map_metadata', '0', '-b:a', '128k', '-c:s', 'copy', '-threads', '2', '-vf', 'yadif', os.path.join(temp_dir, 'temp.mp4') ]
     if video_height > MAX_VERT_RES:
-      shrink_yes = True
-    else:
-      shrink_yes = False
-      ffmpeg_args = [FFMPEG_PATH, '-i', os.path.join(temp_dir, video_basename), '-c:v', 'libx265', '-preset', 'medium', '-crf', '28', '-b:v', '1300k', '-tag:v', 'hvc1', '-vsync', '2', '-r', '30', '-c:a', 'aac', '-map_metadata', '0', '-b:a', '128k', '-c:s', 'copy', '-threads', '2', '-vf', 'yadif', os.path.join(temp_dir, 'temp.mp4') ]
-    if shrink_yes:
       ffmpeg_scale_command = 'scale=-1:' + str(MAX_VERT_RES)
       ffmpeg_args.insert(len(ffmpeg_args)-1, '-vf')
       ffmpeg_args.insert(len(ffmpeg_args)-1, ffmpeg_scale_command)
+
     transcode_cmd = NICE_ARGS + ffmpeg_args
     logging.info('[ffmpeg] Command: %s' % transcode_cmd)
     subprocess.call(transcode_cmd)
@@ -232,16 +238,19 @@ logging.info('Sanity checking our work...')
 try:
   input_size = os.path.getsize(os.path.abspath(video_path))
   output_size = os.path.getsize(os.path.abspath(os.path.join(temp_dir, video_basename)))
+
   if input_size and 1.01 > float(output_size) / float(input_size) > 2.0:
     logging.info('Output file size was too similar (doesn\'t look like we did much); we won\'t replace the original: %s -> %s' % (sizeof_fmt(input_size), sizeof_fmt(output_size)))
     cleanup_and_exit(temp_dir, SAVE_ALWAYS)
   elif input_size and 1.1 > float(output_size) / float(input_size) > 0.1:
     logging.info('Output file size looked sane, we\'ll replace the original: %s -> %s' % (sizeof_fmt(input_size), sizeof_fmt(output_size)))
     #If we have a trash-dir then copy out the original file before copying over it
+
     if STASH_ORIGINAL:
       logging.info('Copying the original file into the stash directory: %s -> %s' % (video_basename, STASH_DIR_PATH))
       shutil.copyfile(os.path.join(original_video_dir, video_basename), os.path.join(STASH_DIR_PATH, video_basename) )
     #now copy the file back into place
+
     if TRANSCODE:
       output_file = os.path.join(temp_dir, 'temp.mp4')
       logging.info('Copying the transcoded file into place: %s -> %s' % ((video_name + ' (HEVC)' + '.mp4'), original_video_dir))
@@ -252,10 +261,13 @@ try:
       output_file = os.path.join(temp_dir, video_basename)
       logging.info('Copying the output file into place: %s -> %s' % (video_basename, original_video_dir))
       shutil.copyfile(output_file, os.path.join(original_video_dir, video_basename) )
+
     cleanup_and_exit(temp_dir, SAVE_ALWAYS)
+
   else:
     logging.info('Output file size looked wonky (too big or too small); we won\'t replace the original: %s -> %s' % (sizeof_fmt(input_size), sizeof_fmt(output_size)))
     cleanup_and_exit(temp_dir, SAVE_ALWAYS or SAVE_FORENSICS)
+
 except Exception, e:
   logging.error('Something went wrong during sanity check: %s' % e)
   cleanup_and_exit(temp_dir, SAVE_ALWAYS or SAVE_FORENSICS)
