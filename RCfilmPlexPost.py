@@ -62,7 +62,6 @@ def sizeof_fmt(num, suffix='B'):
   for unit in ['','K','M','G','T','P','E','Z']:
     if abs(num) < 1024.0:
       return "%3.1f%s%s" % (num, unit, suffix)
-
     num /= 1024.0
 
   return "%.1f%s%s" % (num, 'Y', suffix)
@@ -89,7 +88,6 @@ def cleanup_and_exit(temp_dir, keep_temp=False):
 logging.info('RCfilmPlexPost got invoked from %s' % os.path.realpath(__file__))
 try:
   git_sha = subprocess.check_output('git -C "' + os.path.realpath(os.path.dirname(__file__)) + '" rev-parse --short HEAD', shell=True)
-
   if git_sha:
     logging.info('Using version: %s' % git_sha.strip())
 except: pass
@@ -132,7 +130,12 @@ try:
     shutil.copy(video_path, temp_dir)
   else:
     temp_video_path = video_path
+    
+except Exception, e:
+  logging.error('Something went wrong during file copy: %s' % e)
+  cleanup_and_exit(temp_dir, SAVE_ALWAYS or SAVE_FORENSICS)
 
+try:
   # Process with comskip.
   cmd = NICE_ARGS + [COMSKIP_PATH, '--output', temp_dir, '--ini', COMSKIP_INI_PATH, temp_video_path]
   logging.info('[comskip] Command: %s' % cmd)
@@ -185,7 +188,7 @@ try:
       try:
         subprocess.call(cmd)
       except Exception, e:
-        logging.error('Exception running ffmpeg: %s' % e)
+        logging.error('Something went wrong during split: %s' % e)
         cleanup_and_exit(temp_dir, SAVE_ALWAYS or SAVE_FORENSICS)
 
       # If the last drop segment ended at the end of the file, we will have written a zero-duration file.
